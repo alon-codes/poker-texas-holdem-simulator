@@ -1,26 +1,42 @@
 import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import { CardSigns } from './Models/CardSigns';
+import { CardRanks } from './Models/CardRanks';
+import PlayerCard from './Components/PlayerCard';
+import CardsUnit from './Components/CardsUnit';
 
-function App() {
+import GameStore from './Stores/GameStore';
+import { inject, observer } from 'mobx-react';
+
+function App({gameStore}) {
+  const { players, tableCards, winner } = gameStore;
+
+  const playersList = players.map( ({playerName,cards,id}) => {
+    console.log(cards);
+
+    const cardsList = cards.map((c, index) => <PlayerCard key={index} rank={c.rank.get()} sign={c.sign.get()} />);
+
+    console.log(cardsList);
+
+    return (
+      <CardsUnit key={id} playerName={playerName.get()}>
+        { cardsList }
+      </CardsUnit>
+    ) 
+  });
+
+  const tableCardsList = tableCards.map( (c, index) => {
+    return <PlayerCard key={index} rank={c.rank.get()} sign={c.sign.get()} />;
+  });
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      { playersList }
+      <CardsUnit playerName="Table">
+        { tableCardsList }
+      </CardsUnit>
+      <p>{winner ? winner.playerName : `Add more cards to see `}</p>
     </div>
   );
 }
 
-export default App;
+export default inject('gameStore')(observer(App));
