@@ -2,10 +2,11 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { CardSigns } from '../Models/CardSigns';
 import { CardRanks } from '../Models/CardRanks';
+import Grid from '@material-ui/core/Grid';
 
 const cardStyles = {
-    maxWidth: 150,
-    margin: 20
+    width: "100%",
+    margin: 10
 };
 
 const selectedCardStyle = {
@@ -27,7 +28,9 @@ export default function PlayerCard({rank, sign, isSelected}){
     }
 
     return (
-       <img style={styles} src={cardUrl} alt="" />
+        <Grid item xs={6} sm={4} md={2}>
+        <img style={styles} src={cardUrl} alt="" />
+       </Grid>
     );
 };
 

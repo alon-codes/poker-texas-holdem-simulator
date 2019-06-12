@@ -1,21 +1,33 @@
 import React from 'react';
+import { Card, CardTitle, CardActions } from '@material-ui/core';
+import CardContent from '@material-ui/core/CardContent';
+import Typography from '@material-ui/core/Typography';
+import Grid from '@material-ui/core/Grid';
+import AddIcon from '@material-ui/icons/Add';
+import Fab from '@material-ui/core/Fab';
+import { makeStyles } from '@material-ui/core/styles';
 
-const cardsUnitStyle = {
-    border: "1px #000 solid",
-    padding: 20,
-    backgroundColor: "#FFC300",
-    width: "500px",
-    marginRight: 20
-}
-
+const useStyles = makeStyles({
+    root: {
+        
+    }
+});
 
 export default function CardsUnit({ playerName, children }){
+    const classes = useStyles();
     return (
-        <React.Fragment>
-            <h6>{playerName}</h6>
-            <div style={cardsUnitStyle}>
+        <Card>
+            <CardContent>
+                <Grid container>
+                    <Typography variant="h3">{playerName}</Typography>
+                    <Fab color="primary" aria-label="Add" className={classes.fab}>
+                        <AddIcon />
+                    </Fab>
+                </Grid>
+                <Grid container>
                 {children}
-            </div>
-        </React.Fragment>
+                </Grid>
+            </CardContent>
+        </Card>
     )
 }

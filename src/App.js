@@ -6,6 +6,7 @@ import CardsUnit from './Components/CardsUnit';
 
 import GameStore from './Stores/GameStore';
 import { inject, observer } from 'mobx-react';
+import { withStyles } from '@material-ui/core';
 
 function App({gameStore}) {
   const { players, tableCards, winner } = gameStore;
@@ -39,4 +40,6 @@ function App({gameStore}) {
   );
 }
 
-export default inject('gameStore')(observer(App));
+const appWithStyles = withStyles(App);
+
+export default inject('gameStore')(observer(appWithStyles));
