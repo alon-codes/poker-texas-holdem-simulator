@@ -5,17 +5,17 @@ import App from './App';
 import * as serviceWorker from './serviceWorker';
 import { Provider } from 'mobx-react';
 import GameStore from './Stores/GameStore'; 
-import { MuiThemeProvider } from 'material-ui/styles';
-import { createMuiTheme } from '@material-ui/core';
+import { ThemeProvider } from '@material-ui/styles';
+import { createMuiTheme } from '@material-ui/core/styles';
 
 const theme = createMuiTheme({});
 
 ReactDOM.render((
-    <MuiThemeProvider theme={theme}>
-        <Provider gameStore={GameStore}>
+    <Provider gameStore={GameStore}>
+        <ThemeProvider theme={theme}>
             <App />
-        </Provider>
-    </MuiThemeProvider>
+        </ThemeProvider>
+    </Provider>
 ), document.getElementById('root'));
 
 // If you want your app to work offline and load faster, you can change

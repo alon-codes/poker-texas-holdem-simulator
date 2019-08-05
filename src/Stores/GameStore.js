@@ -52,7 +52,7 @@ class GameStore {
             this.addCardToTable(6,"S");
             this.addCardToTable(13,"D");
             this.addCardToTable(13,"H");
-        });        
+        });
     }
 
     isSameCard = (card, other) => {
