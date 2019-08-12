@@ -1,10 +1,14 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { CardSigns } from '../Models/CardSigns';
-import { CardRanks } from '../Models/CardRanks';
+import CardRanks from '../Models/CardRanks';
 import Grid from '@material-ui/core/Grid';
+import ArrowDropUpIcon from '@material-ui/icons/ArrowDropUp';
+import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
+import IconButton from '@material-ui/core/IconButton';
 
 const cardStyles = {
+    maxWidth: 250,
     width: "100%",
     margin: 10
 };
@@ -28,8 +32,16 @@ export default function PlayerCard({rank, sign, isSelected}){
     }
 
     return (
-        <Grid item xs={6} sm={4} md={2}>
-        <img style={styles} src={cardUrl} alt="" />
+        <Grid item xs>
+            <Grid direction="column" container>
+                <IconButton>
+                    <ArrowDropUpIcon />
+                </IconButton>
+                <img style={styles} src={cardUrl} alt="" />
+                <IconButton>
+                    <ArrowDropDownIcon />
+                </IconButton>
+            </Grid>
        </Grid>
     );
 };

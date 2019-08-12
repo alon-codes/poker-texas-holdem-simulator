@@ -6,6 +6,7 @@ import Grid from '@material-ui/core/Grid';
 import AddIcon from '@material-ui/icons/Add';
 import Fab from '@material-ui/core/Fab';
 import { makeStyles } from '@material-ui/core/styles';
+import GameScoresTexts from '../Models/GameScoresTexts';
 
 const useStyles = makeStyles({
     root: {
@@ -13,21 +14,24 @@ const useStyles = makeStyles({
     }
 });
 
-export default function CardsUnit({ playerName, children }){
+export default function CardsUnit({ playerName, children, score, fullWidth = false }){
     const classes = useStyles();
+    const sm = fullWidth ? 12 : 6;
+    const md = fullWidth ? 12 : 6;
+    
     return (
-        <Card>
-            <CardContent>
+        <Grid item md={md} sm={sm} xs={12} className="card-unit">
+            <Grid container>
                 <Grid container>
                     <Typography variant="h3">{playerName}</Typography>
-                    <Fab color="primary" aria-label="Add" className={classes.fab}>
-                        <AddIcon />
-                    </Fab>
-                </Grid>
+                </Grid>    
                 <Grid container>
+                    { score ? <Typography variant="h5">{ GameScoresTexts[score] }</Typography> : null }                
+                </Grid>     
+            </Grid>
+            <Grid spacing={2} alignItems="center" container>
                 {children}
-                </Grid>
-            </CardContent>
-        </Card>
+            </Grid>
+        </Grid>
     )
 }

@@ -1,4 +1,4 @@
-export const CardRanks = {
+export default {
     "2": 2,
     "3": 3,
     "4": 4,

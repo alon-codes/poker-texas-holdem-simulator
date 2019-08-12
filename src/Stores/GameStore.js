@@ -1,6 +1,7 @@
 import { observable, transaction, autorun, computed } from 'mobx';
 import CardModel from '../Models/CardModel';
 import PlayerModel from '../Models/PlayerModel';
+import ResultSetModel from '../Models/ResultSetModel';
 
 // Texas Holdem based limitions
 const MAX_PLAYERS_PER_GAME = 22;
@@ -15,18 +16,15 @@ class GameStore {
     winner = observable({});
 
     get totalPlayersCardsAmount(){
-        if(this.players.length > 0){
-            return this.players.map(p => p.cards.length).reduce(0, (nextPl, preVal) => preVal + nextPl.tableCards.length);
-        }
-        
-        return 0;
+        return this.players.map(p => p.cards.length)
+                           .reduce((current, nextPl) => current + nextPl, this.tableCards.length);
     }
 
     calculateOdds = () => {
-        console.log(`Total player cards amount ${this.totalPlayersCardsAmount}`);
+        /*console.log(`Total player cards amount ${this.totalPlayersCardsAmount}`);
 
         const playerCardsTotalAmount = this.totalPlayersCardsAmount;
-              
+
         if(playerCardsTotalAmount % 2 != 0){
             console.error(`Can't start game - each player must have 2 playing cards`);
             return false;
@@ -37,22 +35,23 @@ class GameStore {
         if(tableCardsAmount + playerCardsTotalAmount <= TOTAL_MINIMUM_AMOUNT_OF_CARDS){
             console.error(`Can't start game - not enough cards to start the game the minimum is ${TOTAL_MINIMUM_AMOUNT_OF_CARDS}`);
             return false;
-        }
+        }*/
 
-
+        this.players.forEach(this.processPlayerCards);
     }
 
     constructor(){
         autorun(this.calculateOdds);
 
+        // TODO: consider to remove
+        /*
         transaction(() => {
             this.addCardToTable(14,"D");
             this.addCardToTable(6,"C");
             this.addCardToTable(7,"H");
             this.addCardToTable(6,"S");
             this.addCardToTable(13,"D");
-            this.addCardToTable(13,"H");
-        });
+        });*/
     }
 
     isSameCard = (card, other) => {
@@ -77,6 +76,13 @@ class GameStore {
         console.log(`isOnTable - ${isOnTable}`);
 
         return !isPlayersCard && !isOnTable;
+    }
+
+    processPlayerCards = (p) => {
+        const allCards = p.cards.concat(this.tableCards);
+        p.resultSet = new ResultSetModel(allCards);
+        console.info(`Player ${p.playerName} - result set`);
+        console.log(p.resultSet);
     }
 
     addCardToTable = (rank, sign) => {
@@ -113,23 +119,48 @@ class GameStore {
     addPlayer = (playerName) => {
         if(this.players.length + 1 <= MAX_PLAYERS_PER_GAME){
             const incomingPlayer = new PlayerModel(playerName);
-            incomingPlayer.id = Math.random() * 10;
+            incomingPlayer.id = this.players.length + 1;
             this.players.push(incomingPlayer);
-
-            console.info(incomingPlayer.id);
-
-            return true;
+            return incomingPlayer;
         }
         
-        return false;
+        return null;
     }
 
-    testFill = () => {
+    // Test cases
+    // TODO: move them away to test file
+    testPlayerCreation = () => {
+        const player1Object = this.addPlayer("Alon");
+        const player2Object = this.addPlayer("Denis");
+
+        this.addCardToPlayer(player1Object.id ,7, "C");
+        this.addCardToPlayer(player1Object.id, 10, "D");
+
+        this.addCardToPlayer(player2Object.id ,12, "H");
+        this.addCardToPlayer(player2Object.id, 10, "S");
+
+        this.addCardToTable(13,"H");        
+    }
+
+    testStaright = () => {
         transaction(() => {
-            this.addPlayer("Player 1");
-            this.addCardToPlayer(this.players[0].id, 6, "C");
-            this.addCardToPlayer(this.players[0].id, 11, "D");
-        })        
+            const player1Object = this.addPlayer("Alon");
+            const player2Object = this.addPlayer("Denis");
+
+            this.addCardToPlayer(player1Object.id ,6, "C");
+            this.addCardToPlayer(player1Object.id, 7, "D");
+
+            this.addCardToPlayer(player2Object.id ,12, "H");
+            this.addCardToPlayer(player2Object.id, 10, "S");
+            
+            // Table Cards
+            this.addCardToTable(14,"D");
+            this.addCardToTable(8,"D");
+            this.addCardToTable(9,"C");
+            this.addCardToTable(10,"H");
+            this.addCardToTable(3,"S");        
+            this.addCardToTable(14,"H");
+        });
     }
 }
 
