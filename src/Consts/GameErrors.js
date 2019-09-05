@@ -1,0 +1,4 @@
+export default {
+    CARD_ALREADY_EXISTS,
+    INCORRECT_AMOUNT_OF_CARDS
+}

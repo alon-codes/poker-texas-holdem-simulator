@@ -1,40 +1,67 @@
-import { autorun, observable } from "mobx";
-import SequenceModel from "./SequenceModel";
-
-import GameScores from './GameScores';
-import CardRanks from './CardRanks';
+import { observable, runInAction } from "mobx";
+import GameScores from '../Consts/GameScores';
+import CardRanks from '../Consts/CardRanks';
 
 export default class ResultSetModel {
-    similarRanks = {};
-    isFlush = false;
-    sequence = null;
-    highCard = null;
-    ranksSum = 0;
+    similarRanks = observable.map();
+    similarSigns = observable.map();
+    sequence = observable.array();
+    highCard = observable({});
+    ranksSum = observable.box(0);
 
     get score(){
-        if(this.isFlush && this.sequence != null){
-            if(this.sequence.startingRank == CardRanks["10"]){
-                return GameScores.ROYAL_FLUSH;
-            } else {
-                return GameScores.STRAIGHT_FLUSH;
+        const signsArray = Array.from(this.similarSigns);
+        const flushCards = signsArray.find(signsCount => signsCount.length >= 5) || [];
+
+        if(flushCards.length > 0 && this.sequence.length > 0){
+            
+            let isStarightFlush = false;
+            let equalCards = 0;
+
+            for(var i = 0; i < flushCards.length && i < this.sequence.length; i++){
+                if(flushCards[i].equals(this.sequence[i])){
+                    equalCards++;
+                }
             }
-        } if(this.isFlush){
+
+            console.log(`Is straight flush? ${isStarightFlush}`);
+
+            if(equalCards >= 5){
+                if(this.sequence[0].rank == CardRanks["10"]){
+                    return GameScores.ROYAL_FLUSH;
+                }
+                return GameScores.STRAIGHT_FLUSH;
+            }  
+
+        }
+        
+        if(flushCards.length > 0){
             return GameScores.FLUSH;
-        } if(this.sequence != null){
+        }
+        
+        if(this.sequence.length == 5){
             return GameScores.STRAIGHT;
         }
 
-        const ranksArr = Object.keys(this.similarRanks);
+        const ranksArr = Array.from(this.similarRanks.toJS());
 
-        const countPairs = ranksArr.reduce(
-            (pairs, currentRank) => this.similarRanks[currentRank] == 2 ? pairs + 1 : pairs,
-            0
-        );
+        console.log('ResultSetModel::score getter - Ranks array', ranksArr);
 
-        const threesomesCount = ranksArr.reduce(
-            (threes, currentRank) => this.similarRanks[currentRank] == 3 ? threes + 1 : threes,
-            0
-        );
+        let threesomesCount = 0,countPairs = 0,foursomeCount = 0;
+        
+        ranksArr.forEach((rank) => {
+            if(rank === 2){
+                countPairs++;
+            } else if(rank === 3){
+                threesomesCount++;
+            } else if(rank === 4) {
+                foursomeCount++;
+            }
+        })
+
+        if(foursomeCount > 0){
+            return GameScores.FOUR_OF_A_KIND;
+        }
 
         if(countPairs == 1 && threesomesCount == 1){
             return GameScores.FULL_HOUSE;
@@ -49,78 +76,62 @@ export default class ResultSetModel {
         return GameScores.HIGH_CARD;
     }
 
-    /**
-     * RetrieveResultSet produces result set for each given set of cards
-     * this function however is not gonna determine which player is the winner
-     * or even which combinations are detected, it's simple goes through the cards
-     * and creating an object with all the stats for the next step...
-     */
-    constructor(plainCards){
-        if(!Array.isArray(plainCards)){
-            return null;
-        }
+    clear = () => {
+        runInAction(() => {
+            this.similarRanks.clear();
+            this.similarSigns.clear();
+            this.sequence.splice(0, this.sequence.length);
+        });
+    }
 
-        let ranksMap = {};
-        let signsMap = {};
-
-        let currentCard = null, prevCard = null, currentRank, prevRank = null, currentSign, sequenceDiff = 0, sequenceStart = null;
-
-        const sortedCards = plainCards.sort( (prev, current) => prev.rank - current.rank );
+    evaluate = (sortedCards) => {
+        this.clear();
+        let currentCard = null, prevCard = null, prevRank = null, currentRank, currentSign;
 
         for(var i = 0; i < sortedCards.length; i++){
             currentCard = sortedCards[i];
+            currentRank = currentCard.rank.get();
+            currentSign = currentCard.sign.get();
 
             if(i > 0){
                 prevCard = sortedCards[i - 1];
                 prevRank = prevCard.rank.get();
-            }
 
-            currentRank = currentCard.rank.get();
-            currentSign = currentCard.sign.get();
-            
-            // Testing ranks diff
-            if(currentRank - prevRank == 1){
-                if(sequenceStart == null){
-                    sequenceStart = currentRank;
+                // Testing ranks diff
+                if(currentRank - prevRank == 1){
+                    if(this.sequence.length === 0){
+                        this.sequence.push(prevCard);
+                        console.log(`First sequence card`, prevCard);
+                    }
+                    this.sequence.push(currentCard);
+                } else if(this.sequence.length < 5) {
+                    this.sequence.clear();
                 }
-                sequenceDiff++;
-            } else if(sequenceDiff < 5) {
-                sequenceDiff = 1;
-                sequenceStart = currentRank;
             }
-
-            if(ranksMap.hasOwnProperty(currentRank)){
-                ranksMap[currentRank]++;
+    
+            // Stats for finding Pairs | Three of a kind | Four of a kind
+            if(this.similarRanks.has(currentRank)){
+                const oldRanksCount = this.similarRanks.get(currentRank);
+                console.log('Old rank count', oldRanksCount)
+                this.similarRanks.set(currentRank, oldRanksCount + 1);
             } else {
-                ranksMap[currentRank] = 1;
+                this.similarRanks.set(currentRank,1);
             }
 
-            if(!this.isFlush && signsMap.hasOwnProperty(currentSign)){
-                signsMap[currentSign]++;
-            } else {
-                signsMap[currentSign] = 1;
+            // Stats for finding Flush
+            if(!this.similarSigns.has(currentSign)){
+                this.similarSigns.set(currentSign,[]);
             }
-
-            if(signsMap[currentSign] == 5){
-                this.isFlush = true;
-            }
-
-            const { highCard } = this;
+            this.similarSigns.get(currentSign).push(currentCard);
+            console.log('ResultSetModel.js::calcStats current similar rank', this.similarSigns.get(currentSign));
 
             // High card check
-            if(!highCard || highCard.rank < currentRank){
-                this.highCard = currentCard;
+            if(!this.highCard || this.highCard.rank < currentRank){
+                this.highCard.set(currentCard);
             }
 
             // Score summrizing
-            this.ranksSum += currentRank;
+            this.ranksSum.set(this.ranksSum.get() + currentRank);
         }
-
-        // Register only sequence of five cards (staright)
-        if(sequenceDiff == 5){
-            this.sequence = new SequenceModel(sequenceStart, sequenceDiff);
-        }
-
-        this.similarRanks = ranksMap;
     }
 }
