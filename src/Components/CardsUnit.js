@@ -4,33 +4,70 @@ import Grid from '@material-ui/core/Grid';
 import { makeStyles } from '@material-ui/core/styles';
 import GameScoresTexts from '../Consts/GameScoresTexts';
 import { observer } from 'mobx-react';
+import { winnerTextColor, winnerTextBgColor } from '../Common/Colors';
+import GameStatuses from '../Consts/GameStatuses';
 
 const useStyles = makeStyles({
     root: {
         
+    },
+    statusText: {
+        padding: '5px'
+    },
+    winnerText: {
+        color: winnerTextColor,
+        backgroundColor: winnerTextBgColor,
+    },
+    duplicateText: {
+        color: 'yellow'
+    },
+    bestCombination: {
+        marginBottom: '5px'
     }
 });
 
-function CardsUnit({ playerName, children, score, fullWidth = false }){
+function PlayerStatus({ gameStatus, isWinner = false, isHasDuplicateCards }){
     const classes = useStyles();
-    const sm = fullWidth ? 6 : 6;
-    const md = fullWidth ? 3 : 3;
-    const lg = fullWidth ? 3 : 3;
+    let colorStyling = [classes.statusText];
+
+    switch(gameStatus){
+        case GameStatuses.PLAYER_WINNING && isWinner:
+            colorStyling.push(classes.winnerText);
+        break;
+        case GameStatuses.DRAW:
+            colorStyling.push(classes.drawText);
+        break;
+        case GameStatuses.DUPLICATE_CARD && isHasDuplicateCards:
+            colorStyling.push(classes.duplicateText);
+        break;
+    }   
+    return <span className={colorStyling}>{GameStatuses[gameStatus]}</span>;
+}
+
+function CardsUnit({playerName, children, bestCombination, isHasDuplicateCards = false, isWinner = false, gameStatus = GameStatuses.NONE }){
+    const classes = useStyles();
     
     return (
-        <Grid lg={lg} item md={md} sm={sm} xs={12} className="card-unit">
-            <Grid container>
+            <Grid item xs={12} md={4} sm={6} lg={3} className="card-unit">
                 <Grid container>
-                    <Typography variant="h3">{playerName}</Typography>
-                </Grid>    
-                <Grid container>
-                    { score ? <Typography variant="h5">{ GameScoresTexts[score] }</Typography> : null }                
-                </Grid>     
+                    <Grid item xs={12}>
+                        <Typography variant="h3">{playerName}</Typography>
+                    </Grid>
+                    <Grid item xs={12}>
+                        { bestCombination ? (
+                            <Typography className={classes.bestCombination} variant="h5">
+                                { GameScoresTexts[bestCombination] }
+                            </Typography>
+                        ) : null }
+                        { gameStatus ? (
+                            <PlayerStatus gameStatus={gameStatus} isWinner={isWinner} isHasDuplicateCards={isHasDuplicateCards} />
+                        ) : null }
+                    </Grid>  
+                </Grid>
+                <Grid alignContent="stretch" justify="space-between" container>
+                    { children }
+                </Grid>
             </Grid>
-            <Grid container>
-                {children}
-            </Grid>
-        </Grid>
     )
 }
 

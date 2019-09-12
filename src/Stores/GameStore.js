@@ -1,23 +1,98 @@
-import { observable, runInAction, autorun, flow, reaction, observe } from 'mobx';
+import { observable, runInAction, autorun, flow, reaction, observe, intercept } from 'mobx';
 import SortedSet from 'collections/sorted-set';
 import CardModel from '../Models/CardModel';
 import PlayerModel from '../Models/PlayerModel';
 import { MAX_PLAYERS_PER_GAME,MAX_CARDS_PER_TABLE,MAX_CARDS_PER_PLAYER} from '../Consts/GameRules';
 import { MIN_RANK, MAX_RANK } from '../Consts/CardRanks';
-
+import GameStatuses from '../Consts/GameStatuses';
+import CardsFactoryStore from './CardsFactoryStore';
+import GameComparators from '../Consts/GameComparators';
 class GameStore {
     isLoading = observable.box(false);
-    winner = observable({});
-    
     players = observable.array();
     tableCards = observable.array();
-    cardsInSession = null;
+
+    watcheres = [];
+
+    mergeAndSort = (playerObj) => playerObj.cards.concat(this.tableCards).sort((prev, current) => prev.rank - current.rank);
+
+    /**
+     * (player cards += table cards) combination, using mobx reaction
+     * to detect changes and immediately update the result set 
+     * for each player to re-calculate bestCombination,
+     * and decide about new winner
+     */
+    registerPlayerWatcher = (playerObj, index) => {
+        const disposer = reaction(() => this.mergeAndSort(playerObj), (sortedCards) => {
+            playerObj.resultSet.evaluate(sortedCards);
+            const winningPlayer = this.getWinner();
+            runInAction(() => {
+                this.players.forEach(p => p.isWinner.set(false));
+                if(winningPlayer != null){
+                    winningPlayer.isWinner.set(true);
+                }
+            });                     
+        });
+        this.watcheres[index] = disposer;
+    }
+
+    get duplicatePlayer(){
+        return this.players.find(p => p.duplicateCard != null);
+    } 
 
     constructor(){
-        this.cardsInSession = SortedSet([]);
-        observe(this.tableCards, (change) => this.players.forEach(p => p.currentTableCards = this.tableCards));
+        observe(this.tableCards, CardsFactoryStore.autoObserve);
+        observe(this.players, ({ added, newValue}) => {
+            if(!!added){
+                added.forEach(this.registerPlayerWatcher);
+            }         
+        });
+
         // TODO: remove this soon you done testing UI
-        this.testStaright();
+        this.testNoFlush();
+    }
+
+    getWinner = () => {
+        // Can't compare player when there is only one
+        if(this.players.length <= 1){
+            return null;
+        }
+
+        let leadingPlayer = this.players[0];        
+
+        for(var i = 1; i < this.players.length; i++){
+            const currentPlayer = this.players[i];
+            const currentPlayerCombination = currentPlayer.resultSet.bestCombination;
+            const leadingCombination = leadingPlayer.resultSet.bestCombination;
+            if(currentPlayerCombination === leadingCombination){
+                console.log('GameStore::getWinner - CurrentPlayer', currentPlayer);
+                console.log('GameStore::getWinner - LeadingPlayer', leadingPlayer);
+                const diffResult = GameComparators[currentPlayerCombination](currentPlayer, leadingPlayer);
+                if(diffResult !== null){
+                    leadingPlayer = diffResult;
+                }
+            } else if(currentPlayerCombination > leadingCombination){
+                leadingPlayer = currentPlayer;
+            }
+        }
+
+        if(leadingPlayer !== null){
+            leadingPlayer.isWinner.set(true);
+        }
+
+        return leadingPlayer;
+    }
+
+    get gameStatus(){
+        if(this.duplicatePlayer != null){
+            return GameStatuses.DUPLICATE_CARD;
+        }
+
+        if(!this.winner){
+            return GameStatuses.DRAW;
+        } else {
+            return GameStatuses.PLAYER_WINNING;
+        }
     }
 
     /**
@@ -48,46 +123,15 @@ class GameStore {
             return false;
         }*/
     }
-
-    /**
-     * Adds the card to the SortedSet in order
-     * to maintain unique card ranks
-     */
-    registerCard = (id) => {
-        if(!this.cardsInSession.has(id)){
-            this.cardsInSession.push(id);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Removes the card from the SortedSet in order
-     * to free the allocated for future usage
-     */
-    unregisterCard = (id) => {
-        if(this.cardsInSession.has(id)){
-            this.cardsInSession.delete(id);
-            return true;
-        }
-
-        return false;
-    }
     
     /**
      * Replaces existing cards, for existing player/on the table
      */
     replaceExistingCard = (player = null, incomingCard, originalCard) => {
         if(player == null){
-            const cardIndexInTable = this.tableCards.findIndex(c => originalCard.equals(c));
-            console.log('GameStore::updateExistingCard updating table card: index in the array', cardIndexInTable);
-            console.log('GameStore::updateExistingCard ', cardIndexInTable);
+            const cardIndexInTable = this.tableCards.findIndex(c => originalCard.order === c.order);
             if(cardIndexInTable >= 0){
                 this.tableCards[cardIndexInTable] = incomingCard;
-            } else {
-                // TODO: handle this error
-                return false;
             }
         } else {
             player.replaceCard(originalCard, incomingCard);
@@ -97,9 +141,7 @@ class GameStore {
     changeSign = (playerId, originalCard, nSign) => {
         const player = playerId ? this.players.find(p => p.id == playerId) : null;
         const incomingCard = new CardModel(nSign, originalCard.rank.get());
-        this.registerCard(incomingCard.id);
         this.replaceExistingCard(player, incomingCard, originalCard);
-        this.unregisterCard(originalCard.id);
     };
 
     /**
@@ -111,37 +153,18 @@ class GameStore {
 
         const originalRank = originalCard.rank.get();
         const originalSign = originalCard.sign.get();
-
         // Copying card details to new card
-        const incomingCard = new CardModel(originalSign, originalRank);
 
         let nextRank = originalRank;
-        let isCreated = false;
-
-        // Increase rank until finding aviable card
-        while(isCreated === false){
-            console.log('GameStore::nextRank nextRank, incomingCard', nextRank, incomingCard);
-
-            // Checking if it's ACE
-            if(nextRank === MAX_RANK){
-                nextRank = MIN_RANK;
-            } else {
-                nextRank++;
-            }
-            
-            // When the new rank is once again the same is
-            // the original it means that will exhausted all free cards
-            if(nextRank == originalRank){
-                break;
-            }
-
-            incomingCard.rank.set(nextRank);
-
-            isCreated = this.registerCard(incomingCard.id);
+        // Checking if it's ACE
+        if(originalRank === MAX_RANK){
+            nextRank = MIN_RANK;
+        } else {
+            nextRank++;
         }
 
+        const incomingCard = new CardModel(originalSign, nextRank);
         this.replaceExistingCard(player, incomingCard, originalCard);
-        this.unregisterCard(originalCard.id);
     }
 
     /**
@@ -154,36 +177,19 @@ class GameStore {
 
         const originalRank = originalCard.rank.get();
         const originalSign = originalCard.sign.get();
-
-        // Copying card details to new card
-        const incomingCard = new CardModel(originalSign, originalRank);
         
         let prevRank = originalRank;
-        let isCreated = false;
 
-        // Decrease rank until finding aviable card
-        while(isCreated === false){
-            console.log('GameStore::prevRank prevRank, incomingCard', prevRank, incomingCard);
+        // Checking if it's 2
+        if(prevRank === MIN_RANK){
+            prevRank = MAX_RANK;
+        } else {
+            prevRank--;
+        }
 
-            // Checking if it's 2
-            if(prevRank === MIN_RANK){
-                prevRank = MAX_RANK;
-            } else {
-                prevRank--;
-            }
-            
-            // When the new rank is once again the same is
-            // the original it means that will exhausted all free cards
-            if(prevRank == originalRank){
-                break;
-            }
-
-            incomingCard.rank.set(prevRank);
-            isCreated = this.registerCard(incomingCard.id);
-        }   
-
+        // Copying card details to new card
+        const incomingCard = new CardModel(originalSign, prevRank);
         this.replaceExistingCard(player, incomingCard, originalCard);
-        this.unregisterCard(originalCard.id);
     }
 
     /**
@@ -198,7 +204,7 @@ class GameStore {
         incomingCard.sign.set(sign);
         incomingCard.rank.set(rank);
         
-        if(this.tableCards.length + 1 <= MAX_CARDS_PER_TABLE && this.registerCard(incomingCard.id)){
+        if(this.tableCards.length + 1 <= MAX_CARDS_PER_TABLE){
             this.tableCards.push(incomingCard);
         }
     }
@@ -214,29 +220,46 @@ class GameStore {
         }
         
         const incomingCard = new CardModel(sign, rank);
-        
-        if(this.registerCard(incomingCard.id)){
-            player.cards.push(incomingCard);
-            return true;
-        }
-
-        return false;
+        player.cards.push(incomingCard);
     }
 
     /**
      * Adds a new player to the table
      */
-    addPlayer = (playerName) => {
+    addPlayer = (playerName, skipRandom = true) => {
         if(this.players.length + 1 <= MAX_PLAYERS_PER_GAME){
             const incomingPlayer = new PlayerModel(playerName);
             this.players.push(incomingPlayer);
+            this.registerPlayerWatcher(incomingPlayer, this.players.length - 1);
 
             // TODO: attach 2 random card to player
+            if(!skipRandom){
+                this.generateRandomCards(incomingPlayer);
+            }
 
             return incomingPlayer;
         }
         
         return null;
+    }
+
+    // TODO: re-write this function in the future
+    generateRandomCards = (player,amount = 2) => {
+        const cardsAmount = amount;
+
+        let cardsCount = 0;
+        let tempRank = 0;
+        let tempSign = 0;
+        let tempCard = null;
+
+        if(player.cards.length === 2){
+            return;
+        }
+        tempRank = CardModel.getRandomRank();
+        tempSign = CardModel.getRandomSign();
+        tempCard = new CardModel(tempSign, tempCard);
+        cardsCount++;
+        player.cards.push(tempCard);
     }
 
     // Test cases
@@ -327,12 +350,20 @@ class GameStore {
 
             const player1Object = this.addPlayer("Alon");
             const player2Object = this.addPlayer("Denis");
+            const somebody = this.addPlayer("Somebody");
+            const other = this.addPlayer('other');
 
             this.addCardToPlayer(player1Object.id ,6, "D");
             this.addCardToPlayer(player1Object.id, 7, "D");
 
             this.addCardToPlayer(player2Object.id ,12, "H");
             this.addCardToPlayer(player2Object.id, 10, "S");
+
+            this.addCardToPlayer(somebody.id ,14, "H");
+            this.addCardToPlayer(somebody.id, 4, "S");
+
+            this.addCardToPlayer(other.id ,7, "H");
+            this.addCardToPlayer(other.id, 5, "S");
             
             // Table Cards
             this.addCardToTable(14, "D");

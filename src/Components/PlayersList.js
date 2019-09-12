@@ -3,42 +3,38 @@ import CardsUnit from './CardsUnit';
 import PlayerCard from './PlayerCard';
 import { inject, observer } from 'mobx-react';
 import Grid from '@material-ui/core/Grid';
+import { makeStyles, Stepper, Step, StepContent } from '@material-ui/core';
 
-class PlayersList extends React.Component {
-    nextRank = (player, card) => {
-        console.log('PlayersList - nextRank', player, card);
-        this.props.gameStore.nextRank(player, card);
-    }
+const renderPlayer = (player, gameStatus) => {
+    const cardsList = player.cards.map((card,index) => (
+        <Grid item xs={6} key={index}>
+            <PlayerCard card={card} playerId={player.id} />
+        </Grid>
+    ));
 
-    prevRank = (player, card) => {
-        console.log('PlayersList - prevRank', player, card);
-        this.props.gameStore.prevRank(player, card);
-    }
+    const bestCombination = player.resultSet != null ? player.resultSet.bestCombination : "";
+    const isWinner = player.isWinner.get();
+    const playerName = player.playerName.get();
+    const isHasDuplicateCards = player.isHasDuplicateCards;
 
-    renderPlayer = (player) => {
-        const { playerName, cards, id, resultSet } = player;
-
-        const cardsList = cards.map((card,index) => (
-            <Grid item xs={6} key={index}>
-                <PlayerCard isSelected={card.isHighlighted} card={card} id={card.id} playerId={id} />
-            </Grid>
-        ));
-
-        const score = resultSet != null ? resultSet.score : "";
-
-        return (
-            <CardsUnit key={id} playerName={playerName.get()} score={score}>
-                { cardsList }
-            </CardsUnit>
-        );
-    }
-
-    render(){
-        const { players } = this.props;
-        if(!players) return null;
-
-        return players.map(this.renderPlayer);
-    }
+    return (
+        <CardsUnit isHasDuplicateCards={isHasDuplicateCards} gameStatus={gameStatus} isWinner={isWinner} key={player.id} playerName={playerName} bestCombination={bestCombination}>
+            { cardsList }
+        </CardsUnit>
+    )
 }
 
-export default inject('gameStore')(observer(PlayersList));
+const PlayersListGridList = ({ gameStore }) => {
+    const classes = makeStyles({});
+    const players = gameStore.players;
+    const gameStatus = gameStore.gameStatus;
+    if(!players) return null;
+
+    return (
+        <Grid justify="center" container>
+                { players.map((p) => renderPlayer(p, gameStatus)) }
+        </Grid>
+    );
+}
+
+export default inject('gameStore')(observer(PlayersListGridList));

@@ -1,25 +1,59 @@
 import { observable, runInAction } from "mobx";
-import GameScores from '../Consts/GameScores';
+import GameCombinations from '../Consts/GameCombinations';
 import CardRanks from '../Consts/CardRanks';
 
 export default class ResultSetModel {
-    similarRanks = observable.map();
-    similarSigns = observable.map();
-    sequence = observable.array();
     highCard = observable({});
-    ranksSum = observable.box(0);
+    flushCards = observable.array();
+    straight = observable.array();
 
-    get score(){
-        const signsArray = Array.from(this.similarSigns);
-        const flushCards = signsArray.find(signsCount => signsCount.length >= 5) || [];
+    pairs = observable.map();
+    threesomes = observable.map();
+    foursome = observable.array();
+    
+    // Helper function for our map properties
+    // TODO: consider moving to seperate file
+    getMaxByKey = (map) => {
+        let max = null;
 
-        if(flushCards.length > 0 && this.sequence.length > 0){
-            
+        for(const currentKey in map.keys()){
+            if(parseInt(currentKey) > parseInt(max)){
+                max = parseInt(currentKey);
+            }
+        }
+
+        return max ? map.get(max) : null;
+    }
+
+    get highestStraight(){
+        if(this.straight.length < 5){
+            return null;
+        }
+        return this.straight.slice(this.straight.length - 5, this.straight.length);
+    }
+
+    get highestPair(){
+        return this.getMaxByKey(this.pairs);
+    }
+
+    get highestThreesome(){
+        return this.getMaxByKey(this.threesomes);
+    }
+
+    get highestFullhouse(){
+        if(this.highestPair === null || this.highestThreesome === null){
+            return null;
+        }
+        return this.highestThreesome.concat(this.highestPair);
+    }
+
+    get bestCombination(){
+        if(this.flushCards.length > 0 && this.straight.length > 0){
             let isStarightFlush = false;
             let equalCards = 0;
 
-            for(var i = 0; i < flushCards.length && i < this.sequence.length; i++){
-                if(flushCards[i].equals(this.sequence[i])){
+            for(var i = 0; i < this.flushCards.length && i < this.straight.length; i++){
+                if(this.flushCards[i].equals(this.straight[i])){
                     equalCards++;
                 }
             }
@@ -28,65 +62,57 @@ export default class ResultSetModel {
 
             if(equalCards >= 5){
                 if(this.sequence[0].rank == CardRanks["10"]){
-                    return GameScores.ROYAL_FLUSH;
+                    return GameCombinations.ROYAL_FLUSH;
                 }
-                return GameScores.STRAIGHT_FLUSH;
+                return GameCombinations.STRAIGHT_FLUSH;
             }  
 
         }
         
-        if(flushCards.length > 0){
-            return GameScores.FLUSH;
+        if(this.flushCards.length > 0){
+            return GameCombinations.FLUSH;
         }
         
-        if(this.sequence.length == 5){
-            return GameScores.STRAIGHT;
+        if(this.straight.length > 0){
+            return GameCombinations.STRAIGHT;
         }
 
-        const ranksArr = Array.from(this.similarRanks.toJS());
-
-        console.log('ResultSetModel::score getter - Ranks array', ranksArr);
-
-        let threesomesCount = 0,countPairs = 0,foursomeCount = 0;
-        
-        ranksArr.forEach((rank) => {
-            if(rank === 2){
-                countPairs++;
-            } else if(rank === 3){
-                threesomesCount++;
-            } else if(rank === 4) {
-                foursomeCount++;
-            }
-        })
-
-        if(foursomeCount > 0){
-            return GameScores.FOUR_OF_A_KIND;
+        if(this.foursome.length > 0){
+            return GameCombinations.FOUR_OF_A_KIND;
         }
 
-        if(countPairs == 1 && threesomesCount == 1){
-            return GameScores.FULL_HOUSE;
-        } else if(threesomesCount == 1){
-            return GameScores.THREE_OF_A_KIND;
-        } else if(countPairs == 2){
-            return GameScores.TWO_PAIR;
-        } else if(countPairs == 1){
-            return GameScores.ONE_PAIR;
+        if(this.highestPair !== null && this.highestThreesome !== null){
+            return GameCombinations.FULL_HOUSE;
+        } else if(parseInt(this.threesomes.size) > 0){
+            return GameCombinations.THREE_OF_A_KIND;
+        } else if(this.pairs.size === 2){
+            return GameCombinations.TWO_PAIR;
+        } else if(this.pairs.size === 1){
+            return GameCombinations.ONE_PAIR;
         }
 
-        return GameScores.HIGH_CARD;
+        return GameCombinations.HIGH_CARD;
     }
 
     clear = () => {
+        // TODO: consider to remove this method and use the power of computed values instead of clearing everytime
         runInAction(() => {
-            this.similarRanks.clear();
-            this.similarSigns.clear();
-            this.sequence.splice(0, this.sequence.length);
+            const maps = [ this.threesomes, this.pairs ];
+            maps.forEach(m => m.clear());
+
+            const arrays = [ this.straight, this.foursome, this.flushCards ];
+            arrays.forEach(a => a.splice(0, a.length));
         });
     }
 
     evaluate = (sortedCards) => {
         this.clear();
         let currentCard = null, prevCard = null, prevRank = null, currentRank, currentSign;
+
+        const similarRanks = new Map();
+        const similarSigns = new Map();
+        const sequence = [];
+        let highestCard = null;
 
         for(var i = 0; i < sortedCards.length; i++){
             currentCard = sortedCards[i];
@@ -99,39 +125,59 @@ export default class ResultSetModel {
 
                 // Testing ranks diff
                 if(currentRank - prevRank == 1){
-                    if(this.sequence.length === 0){
-                        this.sequence.push(prevCard);
+                    if(sequence.length === 0){
+                        sequence.push(prevCard);
                         console.log(`First sequence card`, prevCard);
                     }
-                    this.sequence.push(currentCard);
-                } else if(this.sequence.length < 5) {
-                    this.sequence.clear();
+                    sequence.push(currentCard);
+                } else if(sequence.length < 5) {
+                    sequence.clear();
                 }
             }
     
             // Stats for finding Pairs | Three of a kind | Four of a kind
-            if(this.similarRanks.has(currentRank)){
-                const oldRanksCount = this.similarRanks.get(currentRank);
-                console.log('Old rank count', oldRanksCount)
-                this.similarRanks.set(currentRank, oldRanksCount + 1);
-            } else {
-                this.similarRanks.set(currentRank,1);
+            if(!similarRanks.has(currentRank)){
+                similarRanks.set(currentRank, []);
             }
-
+            similarRanks.get(currentRank).push(currentCard);
+            
             // Stats for finding Flush
-            if(!this.similarSigns.has(currentSign)){
-                this.similarSigns.set(currentSign,[]);
+            if(!similarSigns.has(currentSign)){
+                similarSigns.set(currentSign,[]);
             }
-            this.similarSigns.get(currentSign).push(currentCard);
-            console.log('ResultSetModel.js::calcStats current similar rank', this.similarSigns.get(currentSign));
+            similarSigns.get(currentSign).push(currentCard);
 
             // High card check
-            if(!this.highCard || this.highCard.rank < currentRank){
-                this.highCard.set(currentCard);
+            if(!highestCard || highestCard.rank.get() < currentRank){
+                highestCard = currentCard;
+            }
+        }
+
+        runInAction(() => {
+            console.log('Damn highCard', this.highCard);
+            this.highCard = highestCard;
+            const signsArray = Array.from(similarSigns);
+            const isFlush = signsArray.findIndex(signsCount => signsCount.length >= 5) > -1;
+            if(isFlush){
+                this.flushCards.replace(signsArray);
             }
 
-            // Score summrizing
-            this.ranksSum.set(this.ranksSum.get() + currentRank);
-        }
+            if(sequence.length >= 5){
+                this.straight.replace(sequence);
+            }
+            
+            console.log('Similar ranks before convertion to related fields', similarRanks);
+
+            similarRanks.forEach((cardsArr, rank) => {
+                const combSize = cardsArr.length;
+                if(combSize === 2){
+                    this.pairs.set(rank, cardsArr);
+                } else if(combSize === 3){
+                    this.threesomes.set(rank, cardsArr);
+                } else if(combSize === 4){
+                    this.foursome.replace(cardsArr);
+                }
+            });
+        })
     }
 }

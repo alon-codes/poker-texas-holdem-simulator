@@ -1,18 +1,23 @@
 import React from 'react';
 import Button from '@material-ui/core/IconButton';
 import { CardSigns } from '../Consts/CardSigns';
+import { ButtonBase, Grid } from '@material-ui/core';
+import * as Colors from '../Common/Colors';
 
 const defaultsignBtnStyles = {
-    backgroundColor: "#fafafa"
+    backgroundColor: "#fafafa",
+    width: '4vw',
+    height: '4vw',
+    maxWidth: '100%',
+    borderRadius: '50%',
+    backgroundSize: 'auto 65%',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center'
 }
 
 const selectedBtnStyle = {
-    backgroundColor: "#ffebee"
+    backgroundColor: Colors.selectedSignBgColor
 };
-
-const signImageStyle = {
-    maxHeight: '30px'
-}
 
 const cardSignsArr = Object.keys(CardSigns).map(sign => CardSigns[sign]);
 
@@ -24,20 +29,19 @@ export default function SignSwitch({sign, onChange}){
 
         const style = {
             ...defaultsignBtnStyles,
-            ...disabledStyle
+            ...disabledStyle,
+            backgroundImage: `url(/signs/${currentSign}.png)`
         }
 
         /* <button key={currentSign} disabled={disabled} style={style}  /> */
 
         return (
-            <Button style={style} key={currentSign} disabled={isSelected} onClick={() => onChange(currentSign)}>
-                <img src={`/signs/${currentSign}.png`} style={signImageStyle} />
-            </Button>
+            <button key={currentSign} style={style}  disabled={isSelected} onClick={() => onChange(currentSign)} />
         )
     });
     return (
-        <React.Fragment>
+        <Grid style={{ padding: '5px' }} container justify="space-between" alignContent="center">
             { signList }
-        </React.Fragment>
+        </Grid>
     )
 }

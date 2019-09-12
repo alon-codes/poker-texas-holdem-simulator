@@ -1,12 +1,29 @@
 import { observable } from "mobx";
+import { MAX_RANK } from "../Consts/CardRanks";
+import { CardSigns } from "../Consts/CardSigns";
 
 export default class CardModel {
     sign = observable.box('');
     rank = observable.box('');
     isHighlighted = observable.box(false);
+    isDuplicated = observable.box(false);
+    order = 0;
+
+    static count = 0;
 
     constructor(s, r){
+        this.order = ++CardModel.count;
         this.set(s, r);
+    }
+
+    static getRandomRank(){
+        return Math.floor(Math.random() * (MAX_RANK + 1));
+    }
+
+    static getRandomSign(){
+        const signsArr = Object.keys(CardSigns);
+        const randNum  = Math.floor(Math.random() * 4);
+        return CardSigns[signsArr[randNum]];
     }
 
     set = (s, r, isHighlighted = false) => {

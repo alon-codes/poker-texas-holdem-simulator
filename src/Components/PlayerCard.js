@@ -14,7 +14,6 @@ const signsContainerStyle = {
     paddign: 5,
     backgroundColor: "#fafafa",
     borderRadius: '25px',
-    margin: commonMargin,
     ...commonShadowBox
 }
 
@@ -41,18 +40,18 @@ class PlayerCard extends React.Component {
         const sign = card.sign.get() ? card.sign.get() : CardSigns["CLUBS"];
 
         return (
-            <Grid direction="column" container>
-                <Grid container justify="center" alignContent="space-between" justify="space-between" alignItems="stretch" direction="column">
-                    <Grid style={signsContainerStyle} item xs={12}>
-                        <SignSwitch sign={sign} onChange={(ns) => this.changeSign(playerId, card, ns)} />
-                    </Grid>
+            <Grid style={{ paddingRight: '20px' }} direction="column" container>
+                <Grid item xs={12}>
+                    <SignSwitch style={signsContainerStyle} sign={sign} onChange={(ns) => this.changeSign(playerId, card, ns)} />
                 </Grid>
                 <SwipeableCard card={card} nextCallback={() => this.nextRank(playerId, card)} prevCallback={() => this.prevRank(playerId, card)} />
-                <Grid container justify="space-between" alignContent="stretch" alignItems="center" direction="row">
-                    <Grid item xs={12}>
+                <Grid direction="row" justify="space-between" container alignContent="space-between" direction="row">
+                    <Grid item xs>
                         <IconButton onClick={() => this.nextRank(playerId, card)}>
                             <ChevronLeft />
                         </IconButton>
+                    </Grid>
+                    <Grid item>
                         <IconButton onClick={() => this.prevRank(playerId, card)}>
                             <ChevronRight />
                         </IconButton>

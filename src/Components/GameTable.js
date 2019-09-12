@@ -11,10 +11,8 @@ function GameTable({ cards }){
     ));
 
     return (
-        <Grid container>
-            <Grid item lg={8} md={8} xs={12}>
-                <Grid alignItems="center" container>{cardsList}</Grid>
-            </Grid>
+        <Grid justify="center" alignItems="center" container>
+            {cardsList}
         </Grid>
     )
 }
