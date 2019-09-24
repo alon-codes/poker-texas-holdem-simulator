@@ -1,7 +1,7 @@
-import { observable, runInAction, observe, reaction } from "mobx";
+import { observable, observe } from "mobx";
 import ResultSetModel from "./ResultSetModel";
-import GameStore from '../Stores/GameStore';
 import CardsFactoryStore from '../Stores/CardsFactoryStore'
+import PlayerStatus from '../Consts/PlayerStatus';
 
 export default class PlayerModel {
     playerName = observable.box('');
@@ -10,7 +10,9 @@ export default class PlayerModel {
     id = '';
     resultSet = null;
 
+    // TODO: @depeteacted
     isWinner = observable.box(false);
+    status = observable.box(PlayerStatus.NONE);
 
     static playerCount = 0;
 

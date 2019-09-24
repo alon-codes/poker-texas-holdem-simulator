@@ -8,6 +8,8 @@ import ChevronLeft from '@material-ui/icons/ChevronLeft';
 import ChevronRight from '@material-ui/icons/ChevronRight';
 import IconButton from '@material-ui/core/IconButton';
 import { Box } from '@material-ui/core';
+import { errorColor } from '../Common/Colors';
+import { observer } from 'mobx-react';
 
 const containerStyle = {
     margin: commonMargin
@@ -24,12 +26,11 @@ const cardStyles = {
     marginTop: commonMargin,
     ...commonShadowBox
 };
+const errorCardStyle = {
+    borderColor: errorColor
+}
 
-const selectedCardStyle = {
-    border: "7px #FF5733 solid"
-};
-
-export default function SwipeableCard({ card, nextCallback, prevCallback }){
+function SwipeableCard({ card, nextCallback, prevCallback, isError = false }){
 
     // TODO: utilize nextCallback/prevCallback with our Swipealbe component
 
@@ -40,13 +41,11 @@ export default function SwipeableCard({ card, nextCallback, prevCallback }){
     const rankValue = CardRanks[rank];
     const cardUrl = `/cards/${rankValue}${sign}.png`;
 
-    let styles = Object.assign( {...cardStyles} , {
-        backgroundImage: `url(${cardUrl})`
-    });
-
-    if(isSelected){
-        styles = Object.assign(styles, ...selectedCardStyle);
-    }
+    let styles = Object.assign(
+        { ...cardStyles },
+        { backgroundImage: `url(${cardUrl})` },
+        isError ? {...errorCardStyle} : {}
+    );
 
     return (
         <Grid disabled container>
@@ -54,7 +53,7 @@ export default function SwipeableCard({ card, nextCallback, prevCallback }){
                 <div style={{ position: 'relative', width: '100%' }}>
                     <Swipeable onSwipedLeft={prevCallback} onSwipedRight={nextCallback} onSwipedUp={nextCallback} onSwipedDown={prevCallback}>
                         <div style={styles}>
-                            <Box style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} alignItems="center" justify="space-between" flexDirection="column">
+                            { /* <Box style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} alignItems="center" justify="space-between" flexDirection="column">
                                 <Box style={{ width: '100%' }} direction="row" justify="space-between" alignContent="space-between" direction="row">
                                     <IconButton>
                                         <ChevronLeft />
@@ -63,7 +62,7 @@ export default function SwipeableCard({ card, nextCallback, prevCallback }){
                                         <ChevronRight />
                                     </IconButton>
                                 </Box>
-                            </Box>
+    </Box> */}
                         </div>
                     </Swipeable>
                 </div>
@@ -71,3 +70,5 @@ export default function SwipeableCard({ card, nextCallback, prevCallback }){
         </Grid>
     )
 }
+
+export default observer(SwipeableCard);

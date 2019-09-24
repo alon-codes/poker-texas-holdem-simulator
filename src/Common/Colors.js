@@ -5,3 +5,4 @@ export const shadowDefaultColor = 'gray';
 export const winnerTextColor = 'green';
 export const winnerTextBgColor = '#efefef';
 export const selectedSignBgColor = '#F8C471';
+export const errorColor = 'red';

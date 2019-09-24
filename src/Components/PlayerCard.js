@@ -9,58 +9,64 @@ import SignSwitch from './SignSwitch';
 import { CardSigns } from '../Consts/CardSigns';
 import SwipeableCard from './SwipeableCard';
 import { commonShadowBox, commonMargin } from '../Common/Styles';
+import UILockerContainer from '../Components/UILockerContainer';
+import { makeStyles } from '@material-ui/core';
 
-const signsContainerStyle = {
-    paddign: 5,
-    backgroundColor: "#fafafa",
-    borderRadius: '25px',
-    ...commonShadowBox
-}
+const useStyles = makeStyles({
+    signsContainerStyle: {
+        paddign: 5,
+        backgroundColor: "#fafafa",
+        borderRadius: '25px',
+        ...commonShadowBox
+    },
+    playerCard: {
+        marginRight: '15px',
+        opacity: 1
+    },
+    disabledCard: {
+        opacity: 0.6
+    }
+})
 
 // TODO: refactor PlayerCard to pure component
-class PlayerCard extends React.Component {
-    nextRank = (playerId, card) => {
-        console.log('PlayersList - nextRank', playerId, card);
-        this.props.gameStore.nextRank(playerId, card);
+function PlayerCard({ gameStore,  playerId, card}) {
+    const nextRank = (playerId, card) => gameStore.nextRank(playerId, card);
+    const prevRank = (playerId, card) => gameStore.prevRank(playerId, card);
+    const changeSign = (playerId, card, nSign) => gameStore.changeSign(playerId, card, nSign);
+    const sign = card.sign.get() ? card.sign.get() : CardSigns["CLUBS"];
+    const isCardLocked = gameStore.isCardLocked(card);
+    const isUILocked = gameStore.isUILocked;
+
+    const classes = useStyles();
+
+    let playerCardsClasses = classes.playerCard;
+
+    if(isCardLocked){
+        playerCardsClasses += " " + classes.disabledCard;
     }
 
-    prevRank = (playerId, card) => {
-        console.log('PlayersList - prevRank', playerId, card);
-        this.props.gameStore.prevRank(playerId, card);
-    }
-
-    changeSign = (playerId, card, nSign) => {
-        this.props.gameStore.changeSign(playerId, card, nSign);
-        console.log('Change sign onChange invoke')
-    }
-
-    render(){
-        console.log('PlayerCard.js Props', this.props);
-        const { card, playerId } = this.props;
-        const sign = card.sign.get() ? card.sign.get() : CardSigns["CLUBS"];
-
-        return (
-            <Grid style={{ paddingRight: '20px' }} direction="column" container>
+    return (
+        <UILockerContainer isLocked={isCardLocked}>
+            <Grid className={playerCardsClasses} direction="column" container>
                 <Grid item xs={12}>
-                    <SignSwitch style={signsContainerStyle} sign={sign} onChange={(ns) => this.changeSign(playerId, card, ns)} />
+                    <SignSwitch className={classes.signsContainerStyle} sign={sign} onChange={(ns) => changeSign(playerId, card, ns)} />
                 </Grid>
-                <SwipeableCard card={card} nextCallback={() => this.nextRank(playerId, card)} prevCallback={() => this.prevRank(playerId, card)} />
+                <SwipeableCard isError={isUILocked && !isCardLocked} card={card} nextCallback={() => nextRank(playerId, card)} prevCallback={() => this.prevRank(playerId, card)} />
                 <Grid direction="row" justify="space-between" container alignContent="space-between" direction="row">
                     <Grid item xs>
-                        <IconButton onClick={() => this.nextRank(playerId, card)}>
+                        <IconButton onClick={() => nextRank(playerId, card)}>
                             <ChevronLeft />
                         </IconButton>
                     </Grid>
                     <Grid item>
-                        <IconButton onClick={() => this.prevRank(playerId, card)}>
+                        <IconButton onClick={() => prevRank(playerId, card)}>
                             <ChevronRight />
                         </IconButton>
                     </Grid>
                 </Grid>
             </Grid>
-        );
-    }
-
+        </UILockerContainer>
+    );
 }
 
 export default inject('gameStore')(observer(PlayerCard));

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { observer, inject } from 'mobx-react';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import DialogContent from '@material-ui/core/DialogContent';
@@ -14,9 +14,6 @@ import Error from '@material-ui/icons/Error';
 function DuplicateDialog({ gameStore }){
     const duplicatePlayer = gameStore.duplicatePlayer;
     const duplicateCard = duplicatePlayer && duplicatePlayer.duplicateCard;
-
-    const [isOpened, setIsOpened] = useState(true);
-    const closeModal = () => setIsOpened(false);
 
     if(!duplicateCard){
         return null;

@@ -23,6 +23,10 @@ const useStyles = makeStyles({
     },
     bestCombination: {
         marginBottom: '5px'
+    },
+    cardsUnit: {
+        padding: '15px',
+        border: '1px #000 solid'
     }
 });
 
@@ -48,7 +52,7 @@ function CardsUnit({playerName, children, bestCombination, isHasDuplicateCards =
     const classes = useStyles();
     
     return (
-            <Grid item xs={12} md={4} sm={6} lg={3} className="card-unit">
+            <Grid className={classes.cardsUnit} item xs={12} md={4} sm={6} lg={3}>
                 <Grid container>
                     <Grid item xs={12}>
                         <Typography variant="h3">{playerName}</Typography>
@@ -64,7 +68,7 @@ function CardsUnit({playerName, children, bestCombination, isHasDuplicateCards =
                         ) : null }
                     </Grid>  
                 </Grid>
-                <Grid alignContent="stretch" justify="space-between" container>
+                <Grid alignContent="center" justify="center" container>
                     { children }
                 </Grid>
             </Grid>

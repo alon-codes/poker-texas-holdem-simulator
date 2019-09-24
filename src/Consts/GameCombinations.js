@@ -1,4 +1,5 @@
 export default {
+    NONE: 0,
     HIGH_CARD: 1,
     ONE_PAIR: 2,
     TWO_PAIR: 3,

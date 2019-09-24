@@ -42,8 +42,7 @@ export default class CardModel {
     }
 
     equals = (other) => {
-        return other.rank.get() === this.rank.get() &&
-               other.sign.get() === this.sign.get();
+        return other.id === this.id;
     }
 
     toString(){

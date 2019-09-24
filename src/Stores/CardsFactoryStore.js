@@ -1,5 +1,6 @@
 import SortedSet from 'collections/sorted-set';
 import { observable, runInAction } from 'mobx';
+import CardModel from '../Models/CardModel';
 
 class CardsFactoryStore {
     cardsInSession = null;
@@ -8,33 +9,28 @@ class CardsFactoryStore {
         this.cardsInSession = SortedSet([]);
     }
 
-    validateCardChange = (card, old = null) => {
+    validateCardChange = (card, oldCard = null) => {
         if(!this.registerCard(card.id)){
             card.isDuplicated.set(true);
             return false;
         }
 
-        if(old){
-            this.unregisterCard(old.id);
-            if(old.isDuplicated.get()){
-                old.isDuplicated.set(false);
+        if(!!oldCard){
+            this.unregisterCard(oldCard.id);
+            if(oldCard.isDuplicated.get()){
+                oldCard.isDuplicated.set(false);
             }
         }
 
         return true;
     }
 
-    autoObserve = ({type, object, newValue, oldValue, added}) => {
-        console.log('Check checkCardUniqueness ----')
-        console.log('type', type);
-        console.log('target object', object);
-        console.log('new value', newValue);
-
+    autoObserve = ({newValue, oldValue, added}) => {
         if(!!newValue){
             this.validateCardChange(newValue, oldValue);
         } else if(!!added) {
             runInAction(() => {
-                added.every(c => this.validateCardChange(c));
+                added.forEach(c => this.validateCardChange(c));
             });            
         }
     }
@@ -51,6 +47,12 @@ class CardsFactoryStore {
 
         return false;
     }
+
+    hasCard = (s,r) => {
+        const card = new CardModel(s,r);
+        return this.cardsInSession.has(card.id);
+    }
+
 
     /**
      * Removes the card from the SortedSet in order

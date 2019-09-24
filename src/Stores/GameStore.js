@@ -7,84 +7,59 @@ import { MIN_RANK, MAX_RANK } from '../Consts/CardRanks';
 import GameStatuses from '../Consts/GameStatuses';
 import CardsFactoryStore from './CardsFactoryStore';
 import GameComparators from '../Consts/GameComparators';
+import { Card } from '@material-ui/core';
+import PlayerStatus from '../Consts/PlayerStatus';
+import ResultSetModel from '../Models/ResultSetModel';
+import GameCombinations from '../Consts/GameCombinations';
+
 class GameStore {
     isLoading = observable.box(false);
-    players = observable.array();
     tableCards = observable.array();
-
     watcheres = [];
 
-    mergeAndSort = (playerObj) => playerObj.cards.concat(this.tableCards).sort((prev, current) => prev.rank - current.rank);
-
-    /**
-     * (player cards += table cards) combination, using mobx reaction
-     * to detect changes and immediately update the result set 
-     * for each player to re-calculate bestCombination,
-     * and decide about new winner
-     */
-    registerPlayerWatcher = (playerObj, index) => {
-        const disposer = reaction(() => this.mergeAndSort(playerObj), (sortedCards) => {
-            playerObj.resultSet.evaluate(sortedCards);
-            const winningPlayer = this.getWinner();
-            runInAction(() => {
-                this.players.forEach(p => p.isWinner.set(false));
-                if(winningPlayer != null){
-                    winningPlayer.isWinner.set(true);
-                }
-            });                     
-        });
-        this.watcheres[index] = disposer;
-    }
-
-    get duplicatePlayer(){
-        return this.players.find(p => p.duplicateCard != null);
-    } 
+    resultSets = observable.map();
 
     constructor(){
-        observe(this.tableCards, CardsFactoryStore.autoObserve);
-        observe(this.players, ({ added, newValue}) => {
-            if(!!added){
-                added.forEach(this.registerPlayerWatcher);
-            }         
+        observe(this.tableCards, CardsFactoryStore.autoObserve, true);
+        observe(this.resultSets, ({ name: player, newValue: resultSet, oldValue: oldResultSet}) => {
+            if(!oldResultSet && !!resultSet){
+                this.registerPlayerWatcher(player);
+            }
         });
+
+        reaction(() => {
+            return this.players.map(p => p.resultSet.bestCombination);
+        }, () => {
+            this.determineWinner();
+        })
 
         // TODO: remove this soon you done testing UI
         this.testNoFlush();
     }
 
-    getWinner = () => {
-        // Can't compare player when there is only one
-        if(this.players.length <= 1){
-            return null;
-        }
+    get players(){
+        const players = [];
+        this.resultSets.forEach((resultSetObj, playerObj, map) => {
+            players.push(playerObj);
+            playerObj.resultSet = resultSetObj;
+        });
+        return players.sort((prev, current) => prev.bestCombination - current.bestCombination);
+    }
 
-        let leadingPlayer = this.players[0];        
+    get duplicatePlayer(){
+        return this.players.find(p => !!p.duplicateCard);
+    }
 
-        for(var i = 1; i < this.players.length; i++){
-            const currentPlayer = this.players[i];
-            const currentPlayerCombination = currentPlayer.resultSet.bestCombination;
-            const leadingCombination = leadingPlayer.resultSet.bestCombination;
-            if(currentPlayerCombination === leadingCombination){
-                console.log('GameStore::getWinner - CurrentPlayer', currentPlayer);
-                console.log('GameStore::getWinner - LeadingPlayer', leadingPlayer);
-                const diffResult = GameComparators[currentPlayerCombination](currentPlayer, leadingPlayer);
-                if(diffResult !== null){
-                    leadingPlayer = diffResult;
-                }
-            } else if(currentPlayerCombination > leadingCombination){
-                leadingPlayer = currentPlayer;
-            }
-        }
+    get isUILocked(){
+        return !!this.duplicatePlayer;
+    }
 
-        if(leadingPlayer !== null){
-            leadingPlayer.isWinner.set(true);
-        }
-
-        return leadingPlayer;
+    get winner(){
+        return this.players.find(p => p.status.get() === PlayerStatus.WINNING);
     }
 
     get gameStatus(){
-        if(this.duplicatePlayer != null){
+        if(this.duplicatePlayer !== null){
             return GameStatuses.DUPLICATE_CARD;
         }
 
@@ -93,6 +68,64 @@ class GameStore {
         } else {
             return GameStatuses.PLAYER_WINNING;
         }
+
+        return GameStatuses.NONE;
+    }
+
+    /**
+     * Simply merging and sorting the passing cards
+     */
+    mergeAndSort = (playerObj) => playerObj.cards.concat(this.tableCards).sort((prev, current) => prev.rank - current.rank);
+    
+    /**
+     * (player cards += table cards) combination, using mobx reaction
+     * to detect changes and immediately update the result set 
+     * for each player to re-calculate bestCombination,
+     * and decide about new winner
+     */
+    registerPlayerWatcher = (playerObj, index) => {
+        const disposer = reaction(() => this.mergeAndSort(playerObj), (sortedCards) => {
+            playerObj.resultSet.evaluate(sortedCards);      
+        }, {
+            fireImmediately: true
+        });
+        this.watcheres[index] = disposer;   
+    }
+
+    isCardLocked = (other) => {
+        return this.isUILocked && !other.equals(this.duplicatePlayer.duplicateCard);
+    }
+
+    determineWinner = () => {
+        // Can't compare player when there is only one
+        if(this.players.length <= 1){
+            return null;
+        }
+
+        let leadingPlayer = this.players[this.players.length - 1];
+
+        for(let i = this.players.length - 2; i >= 0; i--){
+            const currentPlayer = this.players[i];
+            const currentPlayerCombination = currentPlayer.resultSet.bestCombination;
+            const leadingCombination = leadingPlayer.resultSet.bestCombination;
+
+            if(currentPlayerCombination === leadingCombination){
+                const diffResult = GameComparators[currentPlayerCombination](currentPlayer, leadingPlayer);
+                if(diffResult !== null){
+                    
+                }
+            } else if(currentPlayerCombination > leadingCombination){
+                leadingPlayer = currentPlayer;
+                leadingPlayer.status.set(PlayerStatus.LOSE);
+                currentPlayer.status.set(PlayerStatus.WINNING);
+            } else {
+                leadingPlayer.status.set(PlayerStatus.WINNING);
+                currentPlayer.status.set(PlayerStatus.LOSE);
+                break;
+            }
+        }
+
+        return leadingPlayer;
     }
 
     /**
@@ -104,24 +137,6 @@ class GameStore {
             this.tableCards.splice(0, this.tableCards.length);
             this.players.splice(0, this.players.length);
         });
-    }
-
-    calculateResults = () => {
-        /*console.log(`Total player cards amount ${this.totalPlayersCardsAmount}`);
-
-        const playerCardsTotalAmount = this.totalPlayersCardsAmount;
-
-        if(playerCardsTotalAmount % 2 != 0){
-            console.error(`Can't start game - each player must have 2 playing cards`);
-            return false;
-        }
-
-        const tableCardsAmount = this.tableCards.length;
-
-        if(tableCardsAmount + playerCardsTotalAmount <= TOTAL_MINIMUM_AMOUNT_OF_CARDS){
-            console.error(`Can't start game - not enough cards to start the game the minimum is ${TOTAL_MINIMUM_AMOUNT_OF_CARDS}`);
-            return false;
-        }*/
     }
     
     /**
@@ -149,20 +164,17 @@ class GameStore {
      */
     nextRank = (playerId = null, originalCard) => {
         const player = this.players.find(player => player.id == playerId);
-        console.log('GameStore - nextRank', player, originalCard);
-
         const originalRank = originalCard.rank.get();
         const originalSign = originalCard.sign.get();
-        // Copying card details to new card
 
         let nextRank = originalRank;
-        // Checking if it's ACE
-        if(originalRank === MAX_RANK){
+
+        // Checking if it's 2
+        if(nextRank === MAX_RANK){
             nextRank = MIN_RANK;
         } else {
             nextRank++;
         }
-
         const incomingCard = new CardModel(originalSign, nextRank);
         this.replaceExistingCard(player, incomingCard, originalCard);
     }
@@ -181,7 +193,7 @@ class GameStore {
         let prevRank = originalRank;
 
         // Checking if it's 2
-        if(prevRank === MIN_RANK){
+        if(prevRank - 1 < MIN_RANK){
             prevRank = MAX_RANK;
         } else {
             prevRank--;
@@ -229,7 +241,8 @@ class GameStore {
     addPlayer = (playerName, skipRandom = true) => {
         if(this.players.length + 1 <= MAX_PLAYERS_PER_GAME){
             const incomingPlayer = new PlayerModel(playerName);
-            this.players.push(incomingPlayer);
+            this.resultSets.set(incomingPlayer, new ResultSetModel());
+
             this.registerPlayerWatcher(incomingPlayer, this.players.length - 1);
 
             // TODO: attach 2 random card to player

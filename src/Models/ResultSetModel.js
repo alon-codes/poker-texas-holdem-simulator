@@ -96,13 +96,14 @@ export default class ResultSetModel {
 
     clear = () => {
         // TODO: consider to remove this method and use the power of computed values instead of clearing everytime
-        runInAction(() => {
+        const r = runInAction(() => {
             const maps = [ this.threesomes, this.pairs ];
             maps.forEach(m => m.clear());
 
             const arrays = [ this.straight, this.foursome, this.flushCards ];
             arrays.forEach(a => a.splice(0, a.length));
         });
+        console.log(r);
     }
 
     evaluate = (sortedCards) => {
@@ -153,11 +154,12 @@ export default class ResultSetModel {
             }
         }
 
+        this.highCard = highestCard;
+        const signsArray = Array.from(similarSigns);
+        const isFlush = signsArray.findIndex(signsCount => signsCount.length >= 5) > -1;
+
         runInAction(() => {
             console.log('Damn highCard', this.highCard);
-            this.highCard = highestCard;
-            const signsArray = Array.from(similarSigns);
-            const isFlush = signsArray.findIndex(signsCount => signsCount.length >= 5) > -1;
             if(isFlush){
                 this.flushCards.replace(signsArray);
             }
